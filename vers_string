@@ -1,0 +1,121 @@
+#!/bin/sh
+
+# -------------------------------------------
+# SET DEFAULT VALUES
+#
+soft="Unknown"
+project="Unknown"
+developer=`whoami`
+date=`env TZ=UTC0 LANG=C date`
+vers_num=""
+mode=""
+
+# -------------------------------------------
+# PARSE COMMAND LINE ARGUMENT
+#
+# ${soft} is updated by argument
+#
+while test $# -gt 0
+do
+  case "$1" in
+  -c) mode="PROGRAM" ;;
+  -l) mode="LIBRARY" ;;
+  -f) mode="FORMAT"  ;;
+  *)  soft=$1
+    ;;
+  esac
+  shift
+done
+
+# -------------------------------------------
+# SET ${project}, ${vers_num}
+#
+if test "x${VERS_STRING_GIT}" != x
+then
+  # -------------------------------------------
+  # SET ${project}, ${vers_num} by GIT
+  #
+  repo=`${VERS_STRING_GIT} remote | head -n 1`
+  repo_url=`${VERS_STRING_GIT} remote get-url ${repo}`
+  project=`basename -s .git ${repo_url}`
+  vers_num=`${VERS_STRING_GIT} describe --tags --dirty`
+  if test "x${VERS_STRING_PREFIX_DELETE}" = x
+  then
+    VERS_STRING_PREFIX_DELETE="${project}"
+  fi
+  vers_num=`(echo ${VERS_STRING_PREFIX_DELETE} ; echo ${vers_num} ) | \
+    awk '
+      NR == 1 { prefix=$0; next }
+      NR == 2 {
+        if (index($0, prefix) == 1) {
+          for (i = length(prefix) + 1; i <= length($0); i = i + 1) {
+            if (substr($0, i, 1) !~ /[._-]/)
+              break;
+          }
+          print substr($0, i)
+        } else {
+          print
+        }
+      }'`
+  #   -------------------------------------------
+  #   SET ${developer} by GIT
+  # 
+  case "${repo_url}" in
+    https://github.com/*/*|git@github.com:*/*|\
+    https://gitlab.com/*/*|git@gitlab.com:*/*|\
+    https://bitbucket.org/*/*|\
+    https://gitlab.freedesktop.org/*/*|\
+    git@ssh.gitlab.freedesktop.org:*/*)
+      developer=`echo ${repo_url} | sed 's|:|/|g;s|/*$||g' | xargs dirname | xargs basename`
+      ;;
+    *)
+      developer=`dirname $repo`
+      ;;
+  esac
+else
+  # -------------------------------------------
+  # GUESS ${project}, ${vers_num} from pathname
+  #
+  # ASSUMMED PATHNAME IS:
+  #
+  #   /<dir1>/<dir2>/<project>-<vers_num>/<dir3>/<dir4>/...
+  #
+  for d in `pwd | tr '/' '\n' | sed '1d; 1!G; h; $!d'`
+  do
+    case "$d" in
+    *-*)
+      project=`echo $d | sed 's/--*[^-][^-]*$//'`
+      vers_num=`echo $d | sed 's/^.*-//'`
+      ;;
+    *);;
+    esac
+    if test "x${vers_num}" != x
+    then
+      break
+    fi
+  done
+fi
+
+case ${mode} in
+  FORMAT)
+    echo ${soft}-${vers_num}
+    exit 0
+    ;;
+  PROGRAM|LIBRARY)
+    sgs_vers='__IDSTRING(SGS_VERS,"@(#)'
+    sgs_vers="${sgs_vers}"${mode}':'${soft}
+    sgs_vers="${sgs_vers}  PROJECT:"${project}
+    sgs_vers="${sgs_vers}  DEVELOPER:"${developer}
+    sgs_vers="${sgs_vers}  BUILD:"${date}
+    sgs_vers="${sgs_vers}"'\\n");'
+    echo "#include <sys/cdefs.h>"
+    echo "${sgs_vers}"
+    ;;
+  *);;
+esac
+case ${mode} in
+  PROGRAM)
+    echo '__IDSTRING(VERS_NUM,"'${vers_num}'");'
+    ;;
+  *);;
+esac
