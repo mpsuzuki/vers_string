@@ -3,8 +3,8 @@
 # -------------------------------------------
 # SET DEFAULT VALUES
 #
-soft="Unknown"
-project="Unknown"
+soft=""
+project_ver=""
 developer=`whoami`
 date=`env TZ=UTC0 LANG=C date`
 vers_num=""
@@ -21,7 +21,21 @@ do
   -c) mode="PROGRAM" ;;
   -l) mode="LIBRARY" ;;
   -f) mode="FORMAT"  ;;
-  *)  soft=$1
+  *)
+    if test "x${soft}" = x
+    then
+      soft="$1"
+    else
+      case "$1" in
+        *-*)
+          project_ver="$1"
+          ;;
+        *)
+          echo 1>&2 "vers_string: No hyphen in project root "$1
+          # exit 1
+          ;;
+      esac
+    fi
     ;;
   esac
   shift
@@ -30,7 +44,12 @@ done
 # -------------------------------------------
 # SET ${project}, ${vers_num}
 #
-if test "x${VERS_STRING_GIT}" != x
+if test "x${project_ver}" != x
+then
+  # project=`echo $project_ver | sed 's/--*[^-][^-]*$//'`
+  project="${project_ver}"
+  vers_num=`echo $project_ver | sed 's/^.*-//'`
+elif test "x${VERS_STRING_GIT}" != x
 then
   # -------------------------------------------
   # SET ${project}, ${vers_num} by GIT
@@ -95,6 +114,12 @@ else
     fi
   done
 fi
+
+if test "x${project}" = x
+then
+  project="Unknown"
+fi
+
 
 case ${mode} in
   FORMAT)
