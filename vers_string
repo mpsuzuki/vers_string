@@ -56,7 +56,7 @@ then
   #
   repo=`${VERS_STRING_GIT} remote | head -n 1`
   repo_url=`${VERS_STRING_GIT} remote get-url ${repo}`
-  project=`basename -s .git ${repo_url}`
+  project=`basename ${repo_url} .git`
   vers_num=`${VERS_STRING_GIT} describe --tags --dirty`
   if test "x${VERS_STRING_PREFIX_DELETE}" = x
   then
