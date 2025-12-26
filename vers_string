@@ -99,7 +99,26 @@ else
   #
   #   /<dir1>/<dir2>/<project>-<vers_num>/<dir3>/<dir4>/...
   #
-  for d in `pwd | tr '/' '\n' | sed '1d; 1!G; h; $!d'`
+  for d in `pwd | awk '
+    BEGIN {
+      split(" /%20/\t/%09/\v/%0B/\r/%0D/\"//%/%25/'"'"'/%27/\\/%5C/\`/%60", a, "/")
+      for (i = 1; i < length(a); i += 2) esc[a[i]] = a[i+1]
+    }
+    {
+      if (NR > 1) out = out "%0A"
+      for (i = 1; i <= length($0); i++) {
+        c = substr($0, i, 1)
+        if (c > "~") out = out c
+        else if (c < " ") out = out "%XX"
+        else if (c in esc) out = out esc[c]
+        else out = out c
+      }
+    }
+    END {
+      n = split(out, dir, "/")
+      for (i = n; i >= 1; i--) if (dir[i] != "") print dir[i]
+    }
+  '`
   do
     case "$d" in
     *-*)
